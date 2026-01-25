@@ -1,5 +1,4 @@
 import { Text, View } from '@/components/Themed';
-import { Button } from '@/components/ui';
 import { useAuthStore } from '@/features/auth';
 import {
     useSearchMercadorias,
@@ -7,10 +6,10 @@ import {
 } from '@/hooks/api/useMercadorias';
 import { useTheme } from '@/hooks/useTheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -21,17 +20,11 @@ import {
 } from 'react-native';
 
 export default function BuscarScreen() {
+    const router = useRouter();
     const { user } = useAuthStore();
     const { colors } = useTheme();
     const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedMercadoria, setSelectedMercadoria] =
-        useState<Mercadoria | null>(null);
-    const [editingField, setEditingField] = useState<
-        'endereco' | 'codigo' | null
-    >(null);
-    const [endereco, setEndereco] = useState('');
-    const [codigoBarras, setCodigoBarras] = useState('');
 
     // Buscar mercadorias quando termo + empresa selecionada
     const {
@@ -48,25 +41,14 @@ export default function BuscarScreen() {
         searchTerm.length >= 2 && !!selectedEmpresa,
     );
 
-    // Atualizar campos quando seleciona mercadoria
+    // Navegar para tela de edição
     const handleSelectMercadoria = (mercadoria: Mercadoria) => {
-        setSelectedMercadoria(mercadoria);
-        setEndereco(mercadoria.endereco || '');
-        setCodigoBarras(mercadoria.codigoBarras || '');
-        setEditingField(null);
-    };
-
-    const handleSaveChanges = async () => {
-        if (!selectedMercadoria) return;
-
-        try {
-            // TODO: Implementar mutation para atualizar mercadoria
-            Alert.alert('Sucesso', 'Mercadoria atualizada com sucesso!');
-            setSelectedMercadoria(null);
-            setEditingField(null);
-        } catch (err) {
-            Alert.alert('Erro', 'Falha ao atualizar mercadoria');
-        }
+        router.push({
+            pathname: '/editarMercadoria',
+            params: {
+                mercadoria: encodeURIComponent(JSON.stringify(mercadoria)),
+            },
+        });
     };
 
     return (
@@ -102,7 +84,6 @@ export default function BuscarScreen() {
                                             ) {
                                                 setSelectedEmpresa(null);
                                                 setSearchTerm('');
-                                                setSelectedMercadoria(null);
                                             } else {
                                                 setSelectedEmpresa(empresaStr);
                                             }
@@ -268,11 +249,6 @@ export default function BuscarScreen() {
                             }
                             renderItem={({ item }) => {
                                 if (!item) return null;
-                                const itemId =
-                                    item.id ??
-                                    (item as any)?.idMercadoria ??
-                                    item.codigoBarras ??
-                                    item.nome;
 
                                 return (
                                     <Pressable
@@ -286,13 +262,7 @@ export default function BuscarScreen() {
                                             {
                                                 backgroundColor:
                                                     colors.cardBackground,
-                                                borderColor:
-                                                    (
-                                                        selectedMercadoria?.id ===
-                                                        itemId
-                                                    ) ?
-                                                        colors.tint
-                                                    :   colors.border,
+                                                borderColor: colors.border,
                                             },
                                         ]}
                                     >
@@ -305,14 +275,11 @@ export default function BuscarScreen() {
                                             >
                                                 {item.nome || 'Sem nome'}
                                             </Text>
-                                            {selectedMercadoria?.id ===
-                                                itemId && (
-                                                <MaterialCommunityIcons
-                                                    name="check-circle"
-                                                    size={20}
-                                                    color={colors.tint}
-                                                />
-                                            )}
+                                            <MaterialCommunityIcons
+                                                name="chevron-right"
+                                                size={20}
+                                                color={colors.tint}
+                                            />
                                         </View>
                                         <Text
                                             style={[
@@ -326,208 +293,6 @@ export default function BuscarScreen() {
                                 );
                             }}
                         />
-
-                        {/* Detalhe Selecionado */}
-                        {selectedMercadoria && (
-                            <View
-                                style={[
-                                    styles.detailSection,
-                                    { backgroundColor: colors.cardBackground },
-                                ]}
-                            >
-                                <Text
-                                    style={[
-                                        styles.sectionTitle,
-                                        { color: colors.text },
-                                    ]}
-                                >
-                                    Editar Propriedades
-                                </Text>
-
-                                {/* Endereçamento */}
-                                <Pressable
-                                    onPress={() =>
-                                        setEditingField(
-                                            editingField === 'endereco' ? null
-                                            :   'endereco',
-                                        )
-                                    }
-                                    style={[
-                                        styles.propertyCard,
-                                        {
-                                            backgroundColor: colors.background,
-                                            borderColor: colors.border,
-                                        },
-                                    ]}
-                                >
-                                    <View style={styles.propertyHeader}>
-                                        <View style={styles.propertyInfo}>
-                                            <MaterialCommunityIcons
-                                                name="map-marker"
-                                                size={24}
-                                                color={colors.tint}
-                                            />
-                                            <Text
-                                                style={[
-                                                    styles.propertyLabel,
-                                                    {
-                                                        color: colors.textSecondary,
-                                                    },
-                                                ]}
-                                            >
-                                                Endereçamento
-                                            </Text>
-                                        </View>
-                                        <MaterialCommunityIcons
-                                            name={
-                                                editingField === 'endereco' ?
-                                                    'chevron-up'
-                                                :   'chevron-down'
-                                            }
-                                            size={24}
-                                            color={colors.textSecondary}
-                                        />
-                                    </View>
-
-                                    {editingField === 'endereco' && (
-                                        <TextInput
-                                            style={[
-                                                styles.editInput,
-                                                {
-                                                    color: colors.text,
-                                                    borderColor: colors.tint,
-                                                },
-                                            ]}
-                                            value={endereco}
-                                            onChangeText={setEndereco}
-                                            placeholder="Ex: A-15-3-4"
-                                            placeholderTextColor={
-                                                colors.textSecondary
-                                            }
-                                        />
-                                    )}
-
-                                    {editingField !== 'endereco' && (
-                                        <Text
-                                            style={[
-                                                styles.propertyValue,
-                                                { color: colors.text },
-                                            ]}
-                                        >
-                                            {endereco || '-'}
-                                        </Text>
-                                    )}
-                                </Pressable>
-
-                                {/* Código de Barras */}
-                                <Pressable
-                                    onPress={() =>
-                                        setEditingField(
-                                            editingField === 'codigo' ? null : (
-                                                'codigo'
-                                            ),
-                                        )
-                                    }
-                                    style={[
-                                        styles.propertyCard,
-                                        {
-                                            backgroundColor: colors.background,
-                                            borderColor: colors.border,
-                                        },
-                                    ]}
-                                >
-                                    <View style={styles.propertyHeader}>
-                                        <View style={styles.propertyInfo}>
-                                            <MaterialCommunityIcons
-                                                name="barcode"
-                                                size={24}
-                                                color={colors.tint}
-                                            />
-                                            <Text
-                                                style={[
-                                                    styles.propertyLabel,
-                                                    {
-                                                        color: colors.textSecondary,
-                                                    },
-                                                ]}
-                                            >
-                                                Código de Barras
-                                            </Text>
-                                        </View>
-                                        <MaterialCommunityIcons
-                                            name={
-                                                editingField === 'codigo' ?
-                                                    'chevron-up'
-                                                :   'chevron-down'
-                                            }
-                                            size={24}
-                                            color={colors.textSecondary}
-                                        />
-                                    </View>
-
-                                    {editingField === 'codigo' && (
-                                        <TextInput
-                                            style={[
-                                                styles.editInput,
-                                                {
-                                                    color: colors.text,
-                                                    borderColor: colors.tint,
-                                                },
-                                            ]}
-                                            value={codigoBarras}
-                                            onChangeText={setCodigoBarras}
-                                            placeholder="Ex: 8712938974029"
-                                            placeholderTextColor={
-                                                colors.textSecondary
-                                            }
-                                        />
-                                    )}
-
-                                    {editingField !== 'codigo' && (
-                                        <Text
-                                            style={[
-                                                styles.propertyValue,
-                                                { color: colors.text },
-                                            ]}
-                                        >
-                                            {codigoBarras || '-'}
-                                        </Text>
-                                    )}
-                                </Pressable>
-
-                                {/* Save Button */}
-                                <Button
-                                    variant="primary"
-                                    fullWidth
-                                    onPress={handleSaveChanges}
-                                    style={styles.saveButton}
-                                >
-                                    💾 Salvar Alterações
-                                </Button>
-
-                                {/* Auditoria */}
-                                <View
-                                    style={[
-                                        styles.auditSection,
-                                        { borderTopColor: colors.border },
-                                    ]}
-                                >
-                                    <MaterialCommunityIcons
-                                        name="history"
-                                        size={16}
-                                        color={colors.textSecondary}
-                                    />
-                                    <Text
-                                        style={[
-                                            styles.auditText,
-                                            { color: colors.textSecondary },
-                                        ]}
-                                    >
-                                        Última atualização: há 2 horas por João
-                                    </Text>
-                                </View>
-                            </View>
-                        )}
                     </>
                 }
             </ScrollView>
@@ -632,62 +397,5 @@ const styles = StyleSheet.create({
     },
     resultDesc: {
         fontSize: 12,
-    },
-    detailSection: {
-        borderRadius: 12,
-        padding: 16,
-        marginTop: 24,
-        marginBottom: 32,
-    },
-    sectionTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 16,
-    },
-    propertyCard: {
-        borderRadius: 8,
-        borderWidth: 1,
-        padding: 12,
-        marginBottom: 12,
-    },
-    propertyHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    propertyInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    propertyLabel: {
-        fontSize: 12,
-    },
-    propertyValue: {
-        fontSize: 14,
-        fontWeight: '500',
-        marginTop: 8,
-    },
-    editInput: {
-        borderWidth: 1,
-        borderRadius: 6,
-        padding: 10,
-        marginTop: 8,
-        fontSize: 14,
-    },
-    saveButton: {
-        marginTop: 16,
-    },
-    auditSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingTop: 12,
-        marginTop: 12,
-        borderTopWidth: 1,
-    },
-    auditText: {
-        fontSize: 12,
-        flex: 1,
     },
 });

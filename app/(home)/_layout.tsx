@@ -42,14 +42,14 @@ export default function TabLayout() {
                 }}
             />
 
-            {/* Mercadorias */}
+            {/* Editar Mercadoria */}
             <Tabs.Screen
-                name="mercadorias"
+                name="editarMercadoria"
                 options={{
-                    title: 'Mercadorias',
+                    title: 'Mercadoria',
                     tabBarIcon: ({ color }) => (
                         <MaterialCommunityIcons
-                            name="package"
+                            name="package-variant-closed"
                             size={24}
                             color={color}
                         />
