@@ -79,10 +79,15 @@ export default function LoginScreen() {
     };
 
     const handleHealthCheck = async () => {
+        const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'NÃO CONFIGURADA';
+        const fullUrl =
+            baseUrl === 'NÃO CONFIGURADA' ? 'NÃO CONFIGURADA' : (
+                `${baseUrl}health`
+            );
+
         addDebugLog('🔄 Iniciando verificação da API...');
-        addDebugLog(
-            `📍 URL Base: ${process.env.EXPO_PUBLIC_API_URL || 'NÃO CONFIGURADA'}`,
-        );
+        addDebugLog(`📍 URL Base: ${baseUrl}`);
+        addDebugLog(`🔗 Rota Completa: ${fullUrl}`);
 
         try {
             const result = await refetchHealth();
