@@ -2,72 +2,54 @@ import { fetchApi } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
 
 export interface Mercadoria {
-    // Normalized fields
     id?: number;
     nome: string;
-    descricao?: string;
     preco?: number;
     empresa?: string | number;
     endereco?: string;
     codigoBarras?: string;
-    estoque?: number; // Total stock
+    codigoBarrasDun?: string | null;
+    estoque?: number;
     grupo?: string;
+    subgrupo?: string;
     tipo?: string;
-    codigoBarrasDun?: string;
     referencia?: string;
     codigoOriginal?: string;
+    codigoSecundario?: number;
     aplicacao?: string;
     pesoLiquido?: number;
-    qtdeEmbVenda?: number;
     qtdeEmbDun?: number;
-    // Backend fields (prefixed with TMER_)
-    TMER_UNIDADE_FK_PK?: number;
-    TMER_CODIGO_PRI_PK?: number;
-    TMER_CODIGO_SEC_PK?: number;
-    TMER_NOME?: string;
-    TMER_CODIGO_BARRAS_UKN?: string;
-    TMER_CODIGO_BARRAS_DUN_UKN?: string;
-    TMER_REFERENCIA?: string;
-    TMER_CODIGO_ORIGINAL?: string;
-    TMER_APLICACAO?: string;
-    TMER_PESO_LIQUIDO?: number;
-    TMER_QTDE_EMB_DUN?: number;
-    TMER_QTDE_EMB_VENDA?: number;
-    TMER_PRECO_VENDA?: number;
-    TMER_ESTOQUE_TOTAL?: number;
-    TMER_RUA?: string;
-    TMER_BLOCO?: string;
-    TMER_ANDAR?: string;
-    TMER_APARTAMENTO?: string;
-    TMER_GRUPO_NOME?: string;
-    TMER_SUBGRUPO_NOME?: string;
-    TMER_TIPO_NOME?: string;
-    RN?: string;
+    qtdeEmbVenda?: number;
+    rn?: number;
     [key: string]: any;
 }
 
-// Mapper para converter campos do backend (TMER_*) para interface Mercadoria
 function mapBackendMercadoria(item: any): Mercadoria {
+    const endereco = [item.TMER_RUA, item.TMER_BLOCO, item.TMER_ANDAR, item.TMER_APARTAMENTO]
+        .filter(Boolean)
+        .filter(val => val !== '0')
+        .join('/') || item.endereco;
+
     return {
-        // Map backend fields to normalized fields
         id: item.TMER_CODIGO_PRI_PK ?? item.id,
         nome: item.TMER_NOME ?? item.nome ?? '',
-        descricao: item.TMER_SUBGRUPO_NOME ?? item.descricao ?? '',
         preco: item.TMER_PRECO_VENDA ?? item.preco,
-        estoque: item.TMER_ESTOQUE_TOTAL,
-        grupo: item.TMER_GRUPO_NOME,
-        tipo: item.TMER_TIPO_NOME,
+        estoque: item.TMER_ESTOQUE_TOTAL ?? item.estoque,
+        grupo: item.TMER_GRUPO_NOME ?? item.grupo,
+        subgrupo: item.TMER_SUBGRUPO_NOME ?? item.subgrupo,
+        tipo: item.TMER_TIPO_NOME ?? item.tipo,
         codigoBarras: item.TMER_CODIGO_BARRAS_UKN ?? item.codigoBarras,
         codigoBarrasDun: item.TMER_CODIGO_BARRAS_DUN_UKN,
-        referencia: item.TMER_REFERENCIA,
-        codigoOriginal: item.TMER_CODIGO_ORIGINAL,
-        aplicacao: item.TMER_APLICACAO,
-        pesoLiquido: item.TMER_PESO_LIQUIDO,
-        qtdeEmbVenda: item.TMER_QTDE_EMB_VENDA,
-        qtdeEmbDun: item.TMER_QTDE_EMB_DUN,
-        endereco: `${item.TMER_RUA ?? ''}/${item.TMER_BLOCO ?? ''}/${item.TMER_ANDAR ?? ''}/${item.TMER_APARTAMENTO ?? ''}`.replace(/\/+/g, '/').replace(/^\/|\/$/g, '') ?? item.endereco,
+        referencia: item.TMER_REFERENCIA ?? item.referencia,
+        codigoOriginal: item.TMER_CODIGO_ORIGINAL ?? item.codigoOriginal,
+        codigoSecundario: item.TMER_CODIGO_SEC_PK ?? item.codigoSecundario,
+        aplicacao: item.TMER_APLICACAO ?? item.aplicacao,
+        pesoLiquido: item.TMER_PESO_LIQUIDO ?? item.pesoLiquido,
+        qtdeEmbDun: item.TMER_QTDE_EMB_DUN ?? item.qtdeEmbDun,
+        qtdeEmbVenda: item.TMER_QTDE_EMB_VENDA ?? item.qtdeEmbVenda,
         empresa: item.TMER_UNIDADE_FK_PK ?? item.empresa,
-        // Keep original backend fields for reference
+        rn: item.RN,
+        endereco,
         ...item,
     };
 }
@@ -75,26 +57,27 @@ function mapBackendMercadoria(item: any): Mercadoria {
 // Algumas APIs retornam envelope { data: Mercadoria[] }, outras retornam o array direto ou paginação
 type MercadoriaApiResponse =
     | Mercadoria[]
+    | { status: string; data: Mercadoria[] }
     | { data: Mercadoria[] }
     | { data: { items: Mercadoria[] } }
     | { data: { data: Mercadoria[] } };
 
 function normalizeMercadoriasResponse(response: MercadoriaApiResponse) {
     let items: any[] = [];
+
     if (Array.isArray(response)) {
         items = response;
-    } else {
-        const data: any = (response as any)?.data;
-        if (Array.isArray(data)) {
-            items = data;
-        } else if (Array.isArray(data?.items)) {
-            items = data.items;
-        } else if (Array.isArray(data?.data)) {
-            items = data.data;
-        }
+    } else if ((response as any)?.status === 'success' && Array.isArray((response as any)?.data)) {
+        items = (response as any).data;
+    } else if (Array.isArray((response as any)?.data)) {
+        items = (response as any).data;
+    } else if (Array.isArray((response as any)?.data?.items)) {
+        items = (response as any).data.items;
+    } else if (Array.isArray((response as any)?.data?.data)) {
+        items = (response as any).data.data;
     }
-    // Map each item through the backend->frontend converter
-    return items.map((item) => mapBackendMercadoria(item));
+
+    return Array.isArray(items) ? items.map(mapBackendMercadoria) : [];
 }
 
 export interface SearchMercadoriaParams {
@@ -108,58 +91,18 @@ export const mercadoriaKeys = {
         [...mercadoriaKeys.all, 'search', String(idEmpresa), termo] as const,
 };
 
-/**
- * Hook para buscar mercadorias por empresa e termo
- */
-export function useSearchMercadorias(
-    params?: SearchMercadoriaParams,
-    enabled?: boolean,
-) {
-    if (__DEV__) {
-        console.log('🪝 useSearchMercadorias invoked', { params, enabled });
-    }
-
+export function useSearchMercadorias(params?: SearchMercadoriaParams, enabled?: boolean) {
     return useQuery({
-        queryKey: params
-            ? mercadoriaKeys.search(params.idEmpresa, params.termo)
-            : mercadoriaKeys.all,
-        queryFn: () => {
-            if (__DEV__) {
-                console.log('📡 queryFn executando...');
-            }
-            if (!params) {
-                throw new Error('Parâmetros de busca obrigatórios');
-            }
-            const idEmpresaValue = typeof params.idEmpresa === 'string'
-                ? Number(params.idEmpresa) || params.idEmpresa
-                : params.idEmpresa;
+        queryKey: params ? mercadoriaKeys.search(params.idEmpresa, params.termo) : mercadoriaKeys.all,
+        queryFn: async () => {
+            if (!params) throw new Error('Parâmetros de busca obrigatórios');
 
-            if (__DEV__) {
-                console.log('🔎 buscando mercadorias', {
-                    endpoint: 'v1/mercadorias/buscar',
-                    params: { idEmpresa: idEmpresaValue, termo: params.termo },
-                });
-            }
-
-            return fetchApi<MercadoriaApiResponse>('v1/mercadorias/buscar', {
-                params: {
-                    idEmpresa: idEmpresaValue,
-                    termo: params.termo,
-                },
-            }).then((resp) => {
-                if (__DEV__) {
-                    console.log('✅ resposta mercadorias:', resp);
-                }
-                const normalized = normalizeMercadoriasResponse(resp);
-                if (__DEV__) {
-                    console.log('🔍 mercadorias - total itens:', normalized.length);
-                    if (normalized.length > 0) {
-                        console.log('🔍 primeiro item:', normalized[0]);
-                        console.log('🔍 chaves do item:', Object.keys(normalized[0]));
-                    }
-                }
-                return normalized;
+            const idEmpresa = typeof params.idEmpresa === 'string' ? Number(params.idEmpresa) || params.idEmpresa : params.idEmpresa;
+            const resp = await fetchApi<MercadoriaApiResponse>('v1/mercadorias/buscar', {
+                params: { idEmpresa, termo: params.termo },
             });
+
+            return normalizeMercadoriasResponse(resp);
         },
         enabled: enabled ?? !!params,
     });

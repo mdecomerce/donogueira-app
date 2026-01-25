@@ -320,7 +320,7 @@ export default function BuscarScreen() {
                                                 { color: colors.textSecondary },
                                             ]}
                                         >
-                                            {item.descricao || 'Sem descrição'}
+                                            Estoque: {item.estoque ?? 'N/A'}
                                         </Text>
                                     </Pressable>
                                 );
