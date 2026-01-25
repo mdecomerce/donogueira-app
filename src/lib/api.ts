@@ -46,9 +46,11 @@ export async function fetchApi<T>(
 ): Promise<T> {
     try {
         const fullUrl = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
-        console.log('🔗 fetchApi - URL completa:', fullUrl);
-        console.log('📍 fetchApi - Base URL:', API_BASE_URL);
-        console.log('📍 fetchApi - Endpoint:', endpoint);
+        if (__DEV__) {
+            console.log('🔗 fetchApi - URL completa:', fullUrl);
+            console.log('📍 fetchApi - Base URL:', API_BASE_URL);
+            console.log('📍 fetchApi - Endpoint:', endpoint);
+        }
 
         const response = await api.request<T>({
             url: endpoint,
@@ -56,10 +58,23 @@ export async function fetchApi<T>(
         });
         return response.data;
     } catch (error) {
+        // IMPORTANTE: Relança o erro original do Axios em vez de criar um novo
+        // Isso preserva a resposta da API com message, error, etc.
         const err = error as AxiosError;
         const status = err.response?.status;
-        const message = err.response?.statusText || err.message;
-        console.error('❌ fetchApi - Erro:', { status, message, url: err.config?.url });
-        throw new Error(`API Error: ${status ?? 'unknown'} ${message}`);
+        const responseData = err.response?.data as any;
+        const message = err.message;
+
+        if (__DEV__) {
+            console.error('❌ fetchApi - Erro completo:', {
+                status,
+                message,
+                url: err.config?.url,
+                responseData,
+            });
+        }
+
+        // Relança o erro original (mantém response.data intacta)
+        throw err;
     }
 }

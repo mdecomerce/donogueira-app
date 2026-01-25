@@ -2,31 +2,45 @@ import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/features/auth';
 import { useHealth } from '@/hooks/api/useHealth';
+import { useLogin } from '@/hooks/api/useLogin';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/useAppStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import {
     Alert,
+    Clipboard,
     KeyboardAvoidingView,
     Platform,
     Pressable,
     ScrollView,
+    Share,
     StyleSheet,
     TextInput,
 } from 'react-native';
+
+type LogLevel = 'info' | 'warn' | 'error';
+type LogEntry = {
+    timestamp: string;
+    level: LogLevel;
+    message: string;
+};
+
+const DEBUG_STORAGE_KEY = '@app:debug_logs';
+const MAX_LOGS = 100;
+const DEBUG_ENABLED = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
+const AUTO_DEBUG_MODE = DEBUG_ENABLED && __DEV__;
 
 export default function LoginScreen() {
     const [usuario, setUsuario] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
-    const [debugLog, setDebugLog] = useState<string[]>([]);
-    const [showDebug, setShowDebug] = useState(false);
+    const [debugLog, setDebugLog] = useState<LogEntry[]>([]);
+    const [showDebug, setShowDebug] = useState(AUTO_DEBUG_MODE);
 
-    const { login } = useAuthStore();
+    const { login: loginStore } = useAuthStore();
     const { showNotification } = useAppStore();
     const { colors, isDark } = useTheme();
     const { setColorScheme } = useThemeStore();
@@ -37,11 +51,82 @@ export default function LoginScreen() {
         error: healthError,
     } = useHealth();
 
-    const addDebugLog = (message: string) => {
+    // Hook para fazer login via API
+    const { mutate: loginMutation, isPending: isLoggingIn } = useLogin();
+
+    // Carregar logs do AsyncStorage ao montar
+    useEffect(() => {
+        loadLogsFromStorage();
+    }, []);
+
+    const loadLogsFromStorage = async () => {
+        try {
+            const stored = await AsyncStorage.getItem(DEBUG_STORAGE_KEY);
+            if (stored) {
+                const logs: LogEntry[] = JSON.parse(stored);
+                setDebugLog(logs.slice(0, MAX_LOGS));
+            }
+        } catch (error) {
+            console.error('Erro ao carregar logs:', error);
+        }
+    };
+
+    const saveLogsToStorage = async (logs: LogEntry[]) => {
+        try {
+            await AsyncStorage.setItem(DEBUG_STORAGE_KEY, JSON.stringify(logs));
+        } catch (error) {
+            console.error('Erro ao salvar logs:', error);
+        }
+    };
+
+    const addDebugLog = (message: string, level: LogLevel = 'info') => {
         const timestamp = new Date().toLocaleTimeString('pt-BR');
-        setDebugLog((prev) =>
-            [`[${timestamp}] ${message}`, ...prev].slice(0, 20),
-        );
+        const newLog: LogEntry = { timestamp, level, message };
+
+        setDebugLog((prev) => {
+            const updated = [newLog, ...prev].slice(0, MAX_LOGS);
+            saveLogsToStorage(updated);
+            return updated;
+        });
+    };
+
+    const clearLogs = async () => {
+        setDebugLog([]);
+        try {
+            await AsyncStorage.removeItem(DEBUG_STORAGE_KEY);
+        } catch (error) {
+            console.error('Erro ao limpar logs:', error);
+        }
+    };
+
+    const exportLogs = async () => {
+        const logsText = debugLog
+            .map(
+                (log) =>
+                    `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}`,
+            )
+            .join('\n');
+
+        try {
+            await Share.share({
+                message: logsText,
+                title: 'Debug Logs',
+            });
+        } catch (error) {
+            Alert.alert('Erro', 'Não foi possível compartilhar os logs');
+        }
+    };
+
+    const copyLogs = async () => {
+        const logsText = debugLog
+            .map(
+                (log) =>
+                    `[${log.timestamp}] ${log.level.toUpperCase()}: ${log.message}`,
+            )
+            .join('\n');
+
+        Clipboard.setString(logsText);
+        showNotification('Logs copiados para a área de transferência!');
     };
 
     const handleUsuarioChange = (text: string) => {
@@ -60,22 +145,84 @@ export default function LoginScreen() {
             return;
         }
 
-        setIsLoading(true);
+        addDebugLog('🔐 Iniciando autenticação via API...', 'info');
+        addDebugLog(`👤 Usuário: ${usuario}`, 'info');
 
-        setTimeout(() => {
-            login(
-                {
-                    id: parseInt(usuario) || 1,
-                    nome: `Usuário ${usuario}`,
-                    empresas: [1],
+        // Chamar a API de login
+        loginMutation(
+            {
+                codigoUsuario: parseInt(usuario),
+                senha: password,
+            },
+            {
+                onSuccess: (data) => {
+                    addDebugLog('✅ Autenticação bem-sucedida!', 'info');
+                    addDebugLog(`👤 Nome: ${data.data.nome}`, 'info');
+                    addDebugLog(
+                        `🏢 Empresas: ${data.data.empresas.join(', ')}`,
+                        'info',
+                    );
+
+                    showNotification('Login realizado com sucesso!');
+
+                    // Aguarda um pouco para o usuário ver a mensagem
+                    setTimeout(() => {
+                        //router.replace('/(home)');
+                    }, 500);
                 },
-                'fake-jwt-token-123',
-            );
+                onError: (error: any) => {
+                    addDebugLog(
+                        `❌ Exception capturada: ${error?.message || 'Erro desconhecido'}`,
+                        'error',
+                    );
 
-            showNotification('Login realizado com sucesso!');
-            setIsLoading(false);
-            router.replace('/(home)');
-        }, 1500);
+                    // Tenta extrair mensagens de erro da resposta
+                    let errorMessage = 'Erro ao fazer login';
+                    let errorDetails = '';
+
+                    // Se for erro de rede/axios
+                    if (error?.response) {
+                        const status = error.response.status;
+                        addDebugLog(`📊 Status HTTP: ${status}`, 'error');
+
+                        const responseData = error.response.data;
+                        addDebugLog(
+                            `📄 Response: ${JSON.stringify(responseData)}`,
+                            'error',
+                        );
+
+                        // Tentar extrair mensagem de diferentes formatos
+                        errorMessage =
+                            responseData?.message ||
+                            responseData?.error ||
+                            responseData?.msg ||
+                            error.message ||
+                            `Erro ${status}`;
+
+                        errorDetails =
+                            responseData ?
+                                `\n\nDetalhes:\n${JSON.stringify(responseData, null, 2)}`
+                            :   '';
+                    } else if (error?.request) {
+                        addDebugLog(
+                            `⚠️ Request feito mas sem resposta`,
+                            'warn',
+                        );
+                        errorMessage = 'Nenhuma resposta da API';
+                    } else {
+                        addDebugLog(
+                            `⚠️ Erro ao configurar request: ${error.message}`,
+                            'warn',
+                        );
+                        errorMessage = error.message || 'Erro ao fazer login';
+                    }
+
+                    Alert.alert('Erro no Login', `${errorMessage}`, [
+                        { text: 'OK' },
+                    ]);
+                },
+            },
+        );
     };
 
     const handleHealthCheck = async () => {
@@ -85,17 +232,17 @@ export default function LoginScreen() {
                 `${baseUrl}health`
             );
 
-        addDebugLog('🔄 Iniciando verificação da API...');
-        addDebugLog(`📍 URL Base: ${baseUrl}`);
-        addDebugLog(`🔗 Rota Completa: ${fullUrl}`);
+        addDebugLog('🔄 Iniciando verificação da API...', 'info');
+        addDebugLog(`📍 URL Base: ${baseUrl}`, 'info');
+        addDebugLog(`🔗 Rota Completa: ${fullUrl}`, 'info');
 
         try {
             const result = await refetchHealth();
-            addDebugLog(`✅ Resposta recebida`);
+            addDebugLog(`✅ Resposta recebida`, 'info');
 
             if (result.data) {
-                addDebugLog(`✅ Status: ${result.data.status}`);
-                addDebugLog(`📝 Mensagem: ${result.data.message}`);
+                addDebugLog(`✅ Status: ${result.data.status}`, 'info');
+                addDebugLog(`📝 Mensagem: ${result.data.message}`, 'info');
 
                 Alert.alert(
                     'Status da API',
@@ -106,12 +253,17 @@ export default function LoginScreen() {
                 const errorObj = result.error as any;
                 addDebugLog(
                     `❌ Erro no result: ${errorObj?.message || 'Erro desconhecido'}`,
+                    'error',
                 );
 
                 if (errorObj?.response) {
-                    addDebugLog(`📊 Status HTTP: ${errorObj.response.status}`);
+                    addDebugLog(
+                        `📊 Status HTTP: ${errorObj.response.status}`,
+                        'error',
+                    );
                     addDebugLog(
                         `📄 Data: ${JSON.stringify(errorObj.response.data)}`,
+                        'error',
                     );
                 }
 
@@ -131,20 +283,29 @@ export default function LoginScreen() {
         } catch (error: any) {
             addDebugLog(
                 `❌ Exception capturada: ${error?.message || 'Erro desconhecido'}`,
+                'error',
             );
 
             if (error?.response) {
-                addDebugLog(`📊 Status HTTP: ${error.response.status}`);
+                addDebugLog(
+                    `📊 Status HTTP: ${error.response.status}`,
+                    'error',
+                );
                 addDebugLog(
                     `📄 Response: ${JSON.stringify(error.response.data)}`,
+                    'error',
                 );
             } else if (error?.request) {
-                addDebugLog(`⚠️ Request feito mas sem resposta`);
+                addDebugLog(`⚠️ Request feito mas sem resposta`, 'warn');
                 addDebugLog(
                     `🔗 URL tentada: ${error.config?.url || 'desconhecida'}`,
+                    'warn',
                 );
             } else {
-                addDebugLog(`⚠️ Erro ao configurar request: ${error.message}`);
+                addDebugLog(
+                    `⚠️ Erro ao configurar request: ${error.message}`,
+                    'warn',
+                );
             }
 
             // Tenta extrair informações detalhadas do erro
@@ -182,24 +343,26 @@ export default function LoginScreen() {
             >
                 {/* Ações do topo: config + tema */}
                 <View style={styles.topActions}>
-                    <Pressable
-                        onPress={() => setShowDebug(!showDebug)}
-                        style={[
-                            styles.actionButton,
-                            {
-                                backgroundColor:
-                                    showDebug ?
-                                        colors.tint
-                                    :   colors.cardBackground,
-                            },
-                        ]}
-                    >
-                        <MaterialCommunityIcons
-                            name="bug-outline"
-                            size={22}
-                            color={showDebug ? '#FFF' : colors.tint}
-                        />
-                    </Pressable>
+                    {DEBUG_ENABLED && (
+                        <Pressable
+                            onPress={() => setShowDebug(!showDebug)}
+                            style={[
+                                styles.actionButton,
+                                {
+                                    backgroundColor:
+                                        showDebug ?
+                                            colors.tint
+                                        :   colors.cardBackground,
+                                },
+                            ]}
+                        >
+                            <MaterialCommunityIcons
+                                name="bug-outline"
+                                size={22}
+                                color={showDebug ? '#FFF' : colors.tint}
+                            />
+                        </Pressable>
+                    )}
                     <Pressable
                         onPress={handleHealthCheck}
                         disabled={healthLoading}
@@ -253,13 +416,50 @@ export default function LoginScreen() {
                                     { color: colors.text },
                                 ]}
                             >
-                                🐛 Debug Console
+                                🐛 Debug Console {AUTO_DEBUG_MODE && '(Auto)'}
                             </Text>
-                            <Pressable onPress={() => setDebugLog([])}>
-                                <Text style={{ color: colors.tint }}>
-                                    Limpar
-                                </Text>
-                            </Pressable>
+                            <View style={styles.debugActions}>
+                                <Pressable
+                                    onPress={copyLogs}
+                                    style={styles.debugActionButton}
+                                    disabled={debugLog.length === 0}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="content-copy"
+                                        size={16}
+                                        color={
+                                            debugLog.length === 0 ?
+                                                colors.textSecondary
+                                            :   colors.tint
+                                        }
+                                    />
+                                </Pressable>
+                                <Pressable
+                                    onPress={exportLogs}
+                                    style={styles.debugActionButton}
+                                    disabled={debugLog.length === 0}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="share-variant"
+                                        size={16}
+                                        color={
+                                            debugLog.length === 0 ?
+                                                colors.textSecondary
+                                            :   colors.tint
+                                        }
+                                    />
+                                </Pressable>
+                                <Pressable
+                                    onPress={clearLogs}
+                                    style={styles.debugActionButton}
+                                >
+                                    <MaterialCommunityIcons
+                                        name="delete-outline"
+                                        size={16}
+                                        color={colors.tint}
+                                    />
+                                </Pressable>
+                            </View>
                         </View>
                         <ScrollView style={styles.debugScroll}>
                             {debugLog.length === 0 ?
@@ -272,17 +472,24 @@ export default function LoginScreen() {
                                     Nenhum log ainda. Clique no ícone de config
                                     para testar a API.
                                 </Text>
-                            :   debugLog.map((log, index) => (
-                                    <Text
-                                        key={index}
-                                        style={[
-                                            styles.debugLog,
-                                            { color: colors.text },
-                                        ]}
-                                    >
-                                        {log}
-                                    </Text>
-                                ))
+                            :   debugLog.map((log, index) => {
+                                    const logColor =
+                                        log.level === 'error' ? '#ff4444'
+                                        : log.level === 'warn' ? '#ffaa00'
+                                        : colors.text;
+
+                                    return (
+                                        <Text
+                                            key={index}
+                                            style={[
+                                                styles.debugLog,
+                                                { color: logColor },
+                                            ]}
+                                        >
+                                            [{log.timestamp}] {log.message}
+                                        </Text>
+                                    );
+                                })
                             }
                         </ScrollView>
                     </View>
@@ -381,7 +588,7 @@ export default function LoginScreen() {
                             fullWidth
                             variant="primary"
                             onPress={handleLogin}
-                            isLoading={isLoading}
+                            isLoading={isLoggingIn}
                         >
                             Entrar
                         </Button>
@@ -482,6 +689,15 @@ const styles = StyleSheet.create({
     debugTitle: {
         fontSize: 14,
         fontWeight: 'bold',
+        flex: 1,
+    },
+    debugActions: {
+        flexDirection: 'row',
+        gap: 12,
+        alignItems: 'center',
+    },
+    debugActionButton: {
+        padding: 4,
     },
     debugScroll: {
         maxHeight: 180,
