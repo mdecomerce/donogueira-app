@@ -1,4 +1,5 @@
 import { Text, View } from '@/components/Themed';
+import { Button } from '@/components/ui';
 import { useAuthStore } from '@/features/auth';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/useAppStore';
@@ -25,10 +26,9 @@ export default function LoginScreen() {
     const { login } = useAuthStore();
     const { showNotification } = useAppStore();
     const { colors, isDark } = useTheme();
-    const { colorScheme, setColorScheme } = useThemeStore();
+    const { setColorScheme } = useThemeStore();
 
     const handleUsuarioChange = (text: string) => {
-        // Aceita somente números
         const numericValue = text.replace(/[^0-9]/g, '');
         setUsuario(numericValue);
     };
@@ -39,16 +39,14 @@ export default function LoginScreen() {
             return;
         }
 
-        if (usuario.length < 3) {
-            Alert.alert('Erro', 'Usuário deve ter no mínimo 3 dígitos');
+        if (usuario.length < 1) {
+            Alert.alert('Erro', 'Usuário deve ter no mínimo 1 dígito');
             return;
         }
 
         setIsLoading(true);
 
-        // Simular chamada de API
         setTimeout(() => {
-            // Aqui você faria a chamada real para sua API
             login(
                 {
                     id: usuario,
@@ -60,8 +58,6 @@ export default function LoginScreen() {
 
             showNotification('Login realizado com sucesso!');
             setIsLoading(false);
-
-            // Navegar para a tela principal
             router.replace('/(tabs)');
         }, 1500);
     };
@@ -76,14 +72,27 @@ export default function LoginScreen() {
                 keyboardShouldPersistTaps="handled"
                 style={{ backgroundColor: colors.background }}
             >
-                {/* Theme Toggle Button */}
-                <View style={styles.themeToggleContainer}>
+                {/* Ações do topo: config + tema */}
+                <View style={styles.topActions}>
+                    <Pressable
+                        onPress={() => Alert.alert('Configurações', 'Em breve')}
+                        style={[
+                            styles.actionButton,
+                            { backgroundColor: colors.cardBackground },
+                        ]}
+                    >
+                        <MaterialCommunityIcons
+                            name="cog-outline"
+                            size={22}
+                            color={colors.tint}
+                        />
+                    </Pressable>
                     <Pressable
                         onPress={() =>
                             setColorScheme(isDark ? 'light' : 'dark')
                         }
                         style={[
-                            styles.themeToggle,
+                            styles.actionButton,
                             { backgroundColor: colors.cardBackground },
                         ]}
                     >
@@ -100,7 +109,6 @@ export default function LoginScreen() {
                 </View>
 
                 <View style={styles.content}>
-                    {/* Logo/Icon */}
                     <View style={styles.logoContainer}>
                         <MaterialCommunityIcons
                             name="shield-account"
@@ -120,9 +128,7 @@ export default function LoginScreen() {
                         </Text>
                     </View>
 
-                    {/* Form */}
                     <View style={styles.form}>
-                        {/* Usuario Input */}
                         <View
                             style={[
                                 styles.inputContainer,
@@ -150,7 +156,6 @@ export default function LoginScreen() {
                             />
                         </View>
 
-                        {/* Password Input */}
                         <View
                             style={[
                                 styles.inputContainer,
@@ -192,33 +197,14 @@ export default function LoginScreen() {
                             </Pressable>
                         </View>
 
-                        {/* Login Button */}
-                        <Pressable
-                            style={[
-                                styles.loginButton,
-                                { backgroundColor: colors.tint },
-                                isLoading && styles.loginButtonDisabled,
-                            ]}
+                        <Button
+                            fullWidth
+                            variant="primary"
                             onPress={handleLogin}
-                            disabled={isLoading}
+                            isLoading={isLoading}
                         >
-                            {isLoading ?
-                                    <MaterialCommunityIcons
-                                        name="loading"
-                                        size={24}
-                                        color={isDark ? '#000' : 'white'}
-                                        style={styles.spinner}
-                                    />
-                                :   <Text
-                                        style={[
-                                            styles.loginButtonText,
-                                            { color: isDark ? '#000' : 'white' },
-                                        ]}
-                                    >
-                                        Entrar
-                                    </Text>
-                                }
-                        </Pressable>
+                            Entrar
+                        </Button>
                     </View>
                 </View>
             </ScrollView>
@@ -233,11 +219,16 @@ const styles = StyleSheet.create({
     scrollContent: {
         flexGrow: 1,
     },
-    themeToggleContainer: {
+    topActions: {
         padding: 16,
-        alignItems: 'flex-end',
+        paddingTop: 28,
+        marginTop: 4,
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 12,
     },
-    themeToggle: {
+    actionButton: {
         width: 50,
         height: 50,
         borderRadius: 25,
@@ -270,18 +261,19 @@ const styles = StyleSheet.create({
     },
     form: {
         width: '100%',
+        gap: 16,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         borderWidth: 1,
         borderRadius: 12,
-        marginBottom: 16,
         paddingHorizontal: 16,
         height: 56,
+        gap: 12,
     },
     inputIcon: {
-        marginRight: 12,
+        marginRight: 4,
     },
     input: {
         flex: 1,
@@ -289,22 +281,5 @@ const styles = StyleSheet.create({
     },
     eyeIcon: {
         padding: 4,
-    },
-    loginButton: {
-        height: 56,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    loginButtonDisabled: {
-        opacity: 0.6,
-    },
-    loginButtonText: {
-        fontSize: 18,
-        fontWeight: '600',
-    },
-    spinner: {
-        transform: [{ rotate: '360deg' }],
     },
 });
