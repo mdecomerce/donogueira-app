@@ -8,6 +8,7 @@ import { useAppStore } from '@/stores/useAppStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     Alert,
@@ -34,6 +35,7 @@ const DEBUG_ENABLED = process.env.EXPO_PUBLIC_DEBUG_MODE === 'true';
 const AUTO_DEBUG_MODE = DEBUG_ENABLED && __DEV__;
 
 export default function LoginScreen() {
+    const router = useRouter();
     const [usuario, setUsuario] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -167,7 +169,7 @@ export default function LoginScreen() {
 
                     // Aguarda um pouco para o usuário ver a mensagem
                     setTimeout(() => {
-                        //router.replace('/(home)');
+                        router.replace('/(home)');
                     }, 500);
                 },
                 onError: (error: any) => {
