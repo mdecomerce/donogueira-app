@@ -45,6 +45,11 @@ export async function fetchApi<T>(
     config: AxiosRequestConfig = {},
 ): Promise<T> {
     try {
+        const fullUrl = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint.slice(1) : endpoint}`;
+        console.log('🔗 fetchApi - URL completa:', fullUrl);
+        console.log('📍 fetchApi - Base URL:', API_BASE_URL);
+        console.log('📍 fetchApi - Endpoint:', endpoint);
+
         const response = await api.request<T>({
             url: endpoint,
             ...config,
@@ -54,6 +59,7 @@ export async function fetchApi<T>(
         const err = error as AxiosError;
         const status = err.response?.status;
         const message = err.response?.statusText || err.message;
+        console.error('❌ fetchApi - Erro:', { status, message, url: err.config?.url });
         throw new Error(`API Error: ${status ?? 'unknown'} ${message}`);
     }
 }

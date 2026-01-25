@@ -1,6 +1,7 @@
 import { Text, View } from '@/components/Themed';
 import { Button } from '@/components/ui';
 import { useAuthStore } from '@/features/auth';
+import { useHealth } from '@/hooks/api/useHealth';
 import { useTheme } from '@/hooks/useTheme';
 import { useAppStore } from '@/stores/useAppStore';
 import { useThemeStore } from '@/stores/useThemeStore';
@@ -22,11 +23,26 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [debugLog, setDebugLog] = useState<string[]>([]);
+    const [showDebug, setShowDebug] = useState(false);
 
     const { login } = useAuthStore();
     const { showNotification } = useAppStore();
     const { colors, isDark } = useTheme();
     const { setColorScheme } = useThemeStore();
+    const {
+        data: healthData,
+        isLoading: healthLoading,
+        refetch: refetchHealth,
+        error: healthError,
+    } = useHealth();
+
+    const addDebugLog = (message: string) => {
+        const timestamp = new Date().toLocaleTimeString('pt-BR');
+        setDebugLog((prev) =>
+            [`[${timestamp}] ${message}`, ...prev].slice(0, 20),
+        );
+    };
 
     const handleUsuarioChange = (text: string) => {
         const numericValue = text.replace(/[^0-9]/g, '');
@@ -49,9 +65,9 @@ export default function LoginScreen() {
         setTimeout(() => {
             login(
                 {
-                    id: usuario,
-                    name: `Usuário ${usuario}`,
-                    email: `${usuario}@app.com`,
+                    id: parseInt(usuario) || 1,
+                    nome: `Usuário ${usuario}`,
+                    empresas: [1],
                 },
                 'fake-jwt-token-123',
             );
@@ -60,6 +76,93 @@ export default function LoginScreen() {
             setIsLoading(false);
             router.replace('/(home)');
         }, 1500);
+    };
+
+    const handleHealthCheck = async () => {
+        addDebugLog('🔄 Iniciando verificação da API...');
+        addDebugLog(
+            `📍 URL Base: ${process.env.EXPO_PUBLIC_API_URL || 'NÃO CONFIGURADA'}`,
+        );
+
+        try {
+            const result = await refetchHealth();
+            addDebugLog(`✅ Resposta recebida`);
+
+            if (result.data) {
+                addDebugLog(`✅ Status: ${result.data.status}`);
+                addDebugLog(`📝 Mensagem: ${result.data.message}`);
+
+                Alert.alert(
+                    'Status da API',
+                    `Status: ${result.data.status}\n${result.data.message}\n\nTimestamp: ${new Date(result.data.timestamp).toLocaleString('pt-BR')}`,
+                    [{ text: 'OK' }],
+                );
+            } else if (result.error) {
+                const errorObj = result.error as any;
+                addDebugLog(
+                    `❌ Erro no result: ${errorObj?.message || 'Erro desconhecido'}`,
+                );
+
+                if (errorObj?.response) {
+                    addDebugLog(`📊 Status HTTP: ${errorObj.response.status}`);
+                    addDebugLog(
+                        `📄 Data: ${JSON.stringify(errorObj.response.data)}`,
+                    );
+                }
+
+                // Tenta extrair mensagem de erro da resposta da API
+                const errorMessage =
+                    errorObj?.response?.data?.message ||
+                    errorObj?.message ||
+                    'Não foi possível verificar o status da API';
+
+                const errorDetails =
+                    errorObj?.response?.data ?
+                        JSON.stringify(errorObj.response.data, null, 2)
+                    :   null;
+
+                Alert.alert('Erro na API', errorDetails || errorMessage);
+            }
+        } catch (error: any) {
+            addDebugLog(
+                `❌ Exception capturada: ${error?.message || 'Erro desconhecido'}`,
+            );
+
+            if (error?.response) {
+                addDebugLog(`📊 Status HTTP: ${error.response.status}`);
+                addDebugLog(
+                    `📄 Response: ${JSON.stringify(error.response.data)}`,
+                );
+            } else if (error?.request) {
+                addDebugLog(`⚠️ Request feito mas sem resposta`);
+                addDebugLog(
+                    `🔗 URL tentada: ${error.config?.url || 'desconhecida'}`,
+                );
+            } else {
+                addDebugLog(`⚠️ Erro ao configurar request: ${error.message}`);
+            }
+
+            // Tenta extrair informações detalhadas do erro
+            const errorMessage =
+                error?.response?.data?.message ||
+                error?.message ||
+                'API indisponível ou sem conexão';
+
+            const errorStatus =
+                error?.response?.status ?
+                    `\nStatus: ${error.response.status}`
+                :   '';
+
+            const errorDetails =
+                error?.response?.data ?
+                    `\n\nDetalhes:\n${JSON.stringify(error.response.data, null, 2)}`
+                :   '';
+
+            Alert.alert(
+                'Erro de Conexão',
+                `${errorMessage}${errorStatus}${errorDetails}`,
+            );
+        }
     };
 
     return (
@@ -75,14 +178,33 @@ export default function LoginScreen() {
                 {/* Ações do topo: config + tema */}
                 <View style={styles.topActions}>
                     <Pressable
-                        onPress={() => Alert.alert('Configurações', 'Em breve')}
+                        onPress={() => setShowDebug(!showDebug)}
+                        style={[
+                            styles.actionButton,
+                            {
+                                backgroundColor:
+                                    showDebug ?
+                                        colors.tint
+                                    :   colors.cardBackground,
+                            },
+                        ]}
+                    >
+                        <MaterialCommunityIcons
+                            name="bug-outline"
+                            size={22}
+                            color={showDebug ? '#FFF' : colors.tint}
+                        />
+                    </Pressable>
+                    <Pressable
+                        onPress={handleHealthCheck}
+                        disabled={healthLoading}
                         style={[
                             styles.actionButton,
                             { backgroundColor: colors.cardBackground },
                         ]}
                     >
                         <MaterialCommunityIcons
-                            name="cog-outline"
+                            name={healthLoading ? 'loading' : 'cog-outline'}
                             size={22}
                             color={colors.tint}
                         />
@@ -107,6 +229,59 @@ export default function LoginScreen() {
                         />
                     </Pressable>
                 </View>
+
+                {/* Console de Debug */}
+                {showDebug && (
+                    <View
+                        style={[
+                            styles.debugContainer,
+                            {
+                                backgroundColor: colors.cardBackground,
+                                borderColor: colors.tint,
+                            },
+                        ]}
+                    >
+                        <View style={styles.debugHeader}>
+                            <Text
+                                style={[
+                                    styles.debugTitle,
+                                    { color: colors.text },
+                                ]}
+                            >
+                                🐛 Debug Console
+                            </Text>
+                            <Pressable onPress={() => setDebugLog([])}>
+                                <Text style={{ color: colors.tint }}>
+                                    Limpar
+                                </Text>
+                            </Pressable>
+                        </View>
+                        <ScrollView style={styles.debugScroll}>
+                            {debugLog.length === 0 ?
+                                <Text
+                                    style={[
+                                        styles.debugLog,
+                                        { color: colors.textSecondary },
+                                    ]}
+                                >
+                                    Nenhum log ainda. Clique no ícone de config
+                                    para testar a API.
+                                </Text>
+                            :   debugLog.map((log, index) => (
+                                    <Text
+                                        key={index}
+                                        style={[
+                                            styles.debugLog,
+                                            { color: colors.text },
+                                        ]}
+                                    >
+                                        {log}
+                                    </Text>
+                                ))
+                            }
+                        </ScrollView>
+                    </View>
+                )}
 
                 <View style={styles.content}>
                     <View style={styles.logoContainer}>
@@ -281,5 +456,35 @@ const styles = StyleSheet.create({
     },
     eyeIcon: {
         padding: 4,
+    },
+    debugContainer: {
+        marginHorizontal: 16,
+        marginTop: 16,
+        borderWidth: 2,
+        borderRadius: 12,
+        padding: 12,
+        maxHeight: 250,
+    },
+    debugHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#333',
+    },
+    debugTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    debugScroll: {
+        maxHeight: 180,
+    },
+    debugLog: {
+        fontSize: 11,
+        fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+        marginBottom: 4,
+        lineHeight: 16,
     },
 });
