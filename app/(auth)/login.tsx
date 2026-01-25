@@ -58,7 +58,7 @@ export default function LoginScreen() {
 
             showNotification('Login realizado com sucesso!');
             setIsLoading(false);
-            router.replace('/(tabs)');
+            router.replace('/(home)');
         }, 1500);
     };
 
