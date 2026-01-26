@@ -60,50 +60,113 @@ type MercadoriaApiResponse =
     | { status: string; data: Mercadoria[] }
     | { data: Mercadoria[] }
     | { data: { items: Mercadoria[] } }
-    | { data: { data: Mercadoria[] } };
+    | { data: { data: Mercadoria[] } }
+    | { data: { data: Mercadoria[]; pagination: any } }
+    | { data: Mercadoria[]; pagination: any };
 
-function normalizeMercadoriasResponse(response: MercadoriaApiResponse) {
+export interface PaginationInfo {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+export interface PaginatedMercadoriasResponse {
+    items: Mercadoria[];
+    pagination: PaginationInfo;
+}
+
+function normalizeMercadoriasResponse(response: MercadoriaApiResponse): { items: Mercadoria[]; pagination: PaginationInfo } {
     let items: any[] = [];
+    let pagination: PaginationInfo = { page: 1, limit: 20, total: 0, totalPages: 0 };
+
+    const mapPagination = (raw: any): PaginationInfo | null => {
+        if (!raw) return null;
+        return {
+            page: raw.currentPage ?? raw.page ?? 1,
+            limit: raw.pageSize ?? raw.limit ?? raw.limite ?? 20,
+            total: raw.totalRecords ?? raw.total ?? raw.totalRegistros ?? 0,
+            totalPages: raw.totalPages ?? raw.totalPaginas ?? 0,
+        };
+    };
 
     if (Array.isArray(response)) {
         items = response;
+        pagination = { page: 1, limit: items.length, total: items.length, totalPages: 1 };
+    } else if ((response as any)?.status === 'success' && Array.isArray((response as any)?.data?.data)) {
+        items = (response as any).data.data;
+        pagination =
+            mapPagination((response as any).data.pagination) ??
+            { page: 1, limit: items.length, total: items.length, totalPages: 1 };
     } else if ((response as any)?.status === 'success' && Array.isArray((response as any)?.data)) {
         items = (response as any).data;
-    } else if (Array.isArray((response as any)?.data)) {
-        items = (response as any).data;
+        pagination =
+            mapPagination((response as any).pagination) ??
+            { page: 1, limit: items.length, total: items.length, totalPages: 1 };
     } else if (Array.isArray((response as any)?.data?.items)) {
         items = (response as any).data.items;
+        pagination =
+            mapPagination((response as any).data.pagination ?? (response as any).pagination) ??
+            { page: 1, limit: items.length, total: items.length, totalPages: 1 };
     } else if (Array.isArray((response as any)?.data?.data)) {
         items = (response as any).data.data;
+        pagination =
+            mapPagination((response as any).data.pagination ?? (response as any).pagination) ??
+            { page: 1, limit: items.length, total: items.length, totalPages: 1 };
+    } else if (Array.isArray((response as any)?.data)) {
+        items = (response as any).data;
+        pagination =
+            mapPagination((response as any).data.pagination ?? (response as any).pagination) ??
+            { page: 1, limit: items.length, total: items.length, totalPages: 1 };
     }
 
-    return Array.isArray(items) ? items.map(mapBackendMercadoria) : [];
+    return {
+        items: Array.isArray(items) ? items.map(mapBackendMercadoria) : [],
+        pagination,
+    };
 }
 
 export interface SearchMercadoriaParams {
     idEmpresa: string | number;
     termo: string;
+    page?: number;
+    limit?: number;
 }
 
 export const mercadoriaKeys = {
     all: ['mercadorias'] as const,
-    search: (idEmpresa: string | number, termo: string) =>
-        [...mercadoriaKeys.all, 'search', String(idEmpresa), termo] as const,
+    search: (idEmpresa: string | number, termo: string, page?: number, limit?: number) =>
+        [...mercadoriaKeys.all, 'search', String(idEmpresa), termo, page ?? 1, limit ?? 20] as const,
 };
 
 export function useSearchMercadorias(params?: SearchMercadoriaParams, enabled?: boolean) {
     return useQuery({
-        queryKey: params ? mercadoriaKeys.search(params.idEmpresa, params.termo) : mercadoriaKeys.all,
+        queryKey: params ? mercadoriaKeys.search(params.idEmpresa, params.termo, params.page, params.limit) : mercadoriaKeys.all,
         queryFn: async () => {
             if (!params) throw new Error('Parâmetros de busca obrigatórios');
 
             const idEmpresa = typeof params.idEmpresa === 'string' ? Number(params.idEmpresa) || params.idEmpresa : params.idEmpresa;
+            const queryParams: any = {
+                idEmpresa,
+                termo: params.termo,
+            };
+
+            // API usa 'pagina' e 'limite' em português
+            if (params.page) queryParams.pagina = params.page;
+            if (params.limit) queryParams.limite = params.limit;
+
             const resp = await fetchApi<MercadoriaApiResponse>('v1/mercadorias/buscar', {
-                params: { idEmpresa, termo: params.termo },
+                params: queryParams,
             });
 
-            return normalizeMercadoriasResponse(resp);
+            console.log('API Response:', JSON.stringify(resp, null, 2));
+            const normalized = normalizeMercadoriasResponse(resp);
+            console.log('Normalized:', { itemsCount: normalized.items.length, pagination: normalized.pagination });
+
+            return normalized;
         },
         enabled: enabled ?? !!params,
+        staleTime: 5 * 60 * 1000, // Cache válido por 5 minutos
+        gcTime: 10 * 60 * 1000,   // Garbage collection após 10 minutos
     });
 }

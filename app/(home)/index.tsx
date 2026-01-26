@@ -7,7 +7,7 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -25,21 +25,85 @@ export default function BuscarScreen() {
     const { colors } = useTheme();
     const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+    const [page, setPage] = useState(1);
+    const [allMercadorias, setAllMercadorias] = useState<Mercadoria[]>([]);
+    const PAGE_SIZE = 20;
+
+    // Debounce adaptativo: menor delay para códigos curtos (1-2 dígitos), maior para termos longos
+    useEffect(() => {
+        // Se é um código numérico curto (1-2 dígitos), busca imediata
+        const isShortCode = /^\d{1,2}$/.test(searchTerm.trim());
+        const delayMs = isShortCode ? 0 : 500; // Sem delay para códigos curtos, 500ms para outros
+
+        const timer = setTimeout(() => {
+            setDebouncedSearchTerm(searchTerm);
+            setPage(1); // Reseta para primeira página ao fazer nova busca
+            setAllMercadorias([]); // Limpa lista acumulada
+        }, delayMs);
+
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // Buscar mercadorias quando termo + empresa selecionada
     const {
-        data: mercadorias,
+        data: searchResult,
         isLoading,
         error,
+        isFetching,
     } = useSearchMercadorias(
-        searchTerm.length >= 2 && selectedEmpresa ?
+        debouncedSearchTerm.length >= 2 && selectedEmpresa ?
             {
                 idEmpresa: selectedEmpresa,
-                termo: searchTerm,
+                termo: debouncedSearchTerm,
+                page,
+                limit: PAGE_SIZE,
             }
         :   undefined,
-        searchTerm.length >= 2 && !!selectedEmpresa,
+        debouncedSearchTerm.length >= 2 && !!selectedEmpresa,
     );
+
+    // Acumular resultados quando novas páginas são carregadas
+    useEffect(() => {
+        if (searchResult?.items) {
+            console.log(
+                'Page:',
+                page,
+                'Items received:',
+                searchResult.items.length,
+                'Pagination:',
+                searchResult.pagination,
+            );
+            setAllMercadorias((prev) => {
+                // Se é página 1, substitui tudo
+                if (page === 1) {
+                    return searchResult.items;
+                }
+                // Senão, adiciona novos itens sem duplicar
+                const existingIds = new Set(prev.map((m) => m.id));
+                const newItems = searchResult.items.filter(
+                    (m) => !existingIds.has(m.id),
+                );
+                return [...prev, ...newItems];
+            });
+        }
+    }, [searchResult, page]);
+
+    const pagination = searchResult?.pagination;
+
+    // Debug da paginação
+    useEffect(() => {
+        if (pagination) {
+            console.log('Pagination Info:', {
+                page: pagination.page,
+                limit: pagination.limit,
+                total: pagination.total,
+                totalPages: pagination.totalPages,
+                loaded: allMercadorias.length,
+                shouldShowMore: allMercadorias.length < pagination.total,
+            });
+        }
+    }, [pagination, allMercadorias]);
 
     // Navegar para tela de edição
     const handleSelectMercadoria = (mercadoria: Mercadoria) => {
@@ -202,7 +266,19 @@ export default function BuscarScreen() {
                     </View>
                 : isLoading ?
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color={colors.tint} />
+                        <ActivityIndicator
+                            size="large"
+                            color={colors.tint}
+                            style={{ marginBottom: 12 }}
+                        />
+                        <Text
+                            style={[
+                                styles.loadingText,
+                                { color: colors.textSecondary },
+                            ]}
+                        >
+                            Buscando mercadorias...
+                        </Text>
                     </View>
                 : error ?
                     <View style={styles.errorContainer}>
@@ -217,7 +293,7 @@ export default function BuscarScreen() {
                             Erro ao buscar mercadorias
                         </Text>
                     </View>
-                : !mercadorias || mercadorias.length === 0 ?
+                : !allMercadorias || allMercadorias.length === 0 ?
                     <View style={styles.emptyState}>
                         <MaterialCommunityIcons
                             name="package-variant"
@@ -234,10 +310,31 @@ export default function BuscarScreen() {
                         </Text>
                     </View>
                 :   <>
+                        {/* Informação de paginação */}
+                        {pagination && pagination.total > 0 && (
+                            <View style={styles.paginationInfo}>
+                                <MaterialCommunityIcons
+                                    name="information"
+                                    size={16}
+                                    color={colors.tint}
+                                    style={{ marginRight: 8 }}
+                                />
+                                <Text
+                                    style={[
+                                        styles.paginationText,
+                                        { color: colors.tint },
+                                    ]}
+                                >
+                                    Mostrando {allMercadorias.length} de{' '}
+                                    {pagination.total} resultados
+                                </Text>
+                            </View>
+                        )}
+
                         {/* Lista de Resultados */}
                         <FlatList
                             scrollEnabled={false}
-                            data={mercadorias}
+                            data={allMercadorias}
                             keyExtractor={(item, index) =>
                                 String(
                                     item?.id ??
@@ -293,6 +390,41 @@ export default function BuscarScreen() {
                                 );
                             }}
                         />
+
+                        {/* Botão Carregar Mais */}
+                        {pagination &&
+                            allMercadorias.length < pagination.total && (
+                                <Pressable
+                                    onPress={() => setPage(page + 1)}
+                                    disabled={isFetching}
+                                    style={[
+                                        styles.loadMoreButton,
+                                        {
+                                            backgroundColor: colors.tint,
+                                            opacity: isFetching ? 0.6 : 1,
+                                        },
+                                    ]}
+                                >
+                                    {isFetching ?
+                                        <>
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#FFF"
+                                                style={{ marginRight: 8 }}
+                                            />
+                                            <Text style={styles.loadMoreText}>
+                                                Carregando...
+                                            </Text>
+                                        </>
+                                    :   <Text style={styles.loadMoreText}>
+                                            Carregar Mais (
+                                            {pagination.total -
+                                                allMercadorias.length}{' '}
+                                            restantes)
+                                        </Text>
+                                    }
+                                </Pressable>
+                            )}
                     </>
                 }
             </ScrollView>
@@ -369,6 +501,37 @@ const styles = StyleSheet.create({
     loadingContainer: {
         paddingVertical: 32,
         alignItems: 'center',
+    },
+    loadingText: {
+        fontSize: 14,
+        marginTop: 8,
+    },
+    paginationInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(33,150,243,0.1)',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 16,
+    },
+    paginationText: {
+        fontSize: 12,
+        flex: 1,
+        fontWeight: '500',
+    },
+    loadMoreButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 14,
+        borderRadius: 8,
+        marginTop: 16,
+        marginBottom: 32,
+    },
+    loadMoreText: {
+        color: '#FFF',
+        fontSize: 15,
+        fontWeight: '600',
     },
     errorContainer: {
         paddingVertical: 32,
