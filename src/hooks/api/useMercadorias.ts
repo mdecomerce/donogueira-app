@@ -159,9 +159,7 @@ export function useSearchMercadorias(params?: SearchMercadoriaParams, enabled?: 
                 params: queryParams,
             });
 
-            console.log('API Response:', JSON.stringify(resp, null, 2));
             const normalized = normalizeMercadoriasResponse(resp);
-            console.log('Normalized:', { itemsCount: normalized.items.length, pagination: normalized.pagination });
 
             return normalized;
         },

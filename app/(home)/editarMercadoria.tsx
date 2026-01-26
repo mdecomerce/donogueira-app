@@ -107,7 +107,7 @@ export default function EditarMercadoriaScreen() {
                     ]}
                 >
                     <MaterialCommunityIcons
-                        name="package"
+                        name="package-variant-closed"
                         size={32}
                         color={colors.tint}
                         style={styles.headerIcon}
@@ -117,14 +117,17 @@ export default function EditarMercadoriaScreen() {
                             {mercadoria.nome}
                         </Text>
                         {mercadoria.id && (
-                            <Text
-                                style={[
-                                    styles.headerSubtitle,
-                                    { color: colors.textSecondary },
-                                ]}
-                            >
-                                ID: {mercadoria.id}
-                            </Text>
+                            <>
+                                <Text
+                                    style={[
+                                        styles.headerSubtitle,
+                                        { color: colors.textSecondary },
+                                    ]}
+                                >
+                                    empresa: {mercadoria.empresa} código:{' '}
+                                    {mercadoria.id}
+                                </Text>
+                            </>
                         )}
                     </View>
                 </View>
@@ -384,7 +387,7 @@ export default function EditarMercadoriaScreen() {
                         disabled={isSaving}
                         style={styles.saveButton}
                     >
-                        {isSaving ? 'Salvando...' : '💾 Salvar'}
+                        {isSaving ? 'Salvando...' : 'Salvar'}
                     </Button>
                 </View>
             </ScrollView>

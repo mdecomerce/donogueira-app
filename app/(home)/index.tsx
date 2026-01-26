@@ -66,14 +66,6 @@ export default function BuscarScreen() {
     // Acumular resultados quando novas páginas são carregadas
     useEffect(() => {
         if (searchResult?.items) {
-            console.log(
-                'Page:',
-                page,
-                'Items received:',
-                searchResult.items.length,
-                'Pagination:',
-                searchResult.pagination,
-            );
             setAllMercadorias((prev) => {
                 // Se é página 1, substitui tudo
                 if (page === 1) {
@@ -93,16 +85,7 @@ export default function BuscarScreen() {
 
     // Debug da paginação
     useEffect(() => {
-        if (pagination) {
-            console.log('Pagination Info:', {
-                page: pagination.page,
-                limit: pagination.limit,
-                total: pagination.total,
-                totalPages: pagination.totalPages,
-                loaded: allMercadorias.length,
-                shouldShowMore: allMercadorias.length < pagination.total,
-            });
-        }
+        if (!pagination) return;
     }, [pagination, allMercadorias]);
 
     // Navegar para tela de edição
@@ -211,7 +194,7 @@ export default function BuscarScreen() {
                             style={[styles.searchInput, { color: colors.text }]}
                             placeholder={
                                 selectedEmpresa ?
-                                    'Buscar por SKU ou Código...'
+                                    'Buscar por SKU, EAN, nome...'
                                 :   'Selecione uma empresa para buscar'
                             }
                             placeholderTextColor={colors.textSecondary}

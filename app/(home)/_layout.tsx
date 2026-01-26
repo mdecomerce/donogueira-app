@@ -21,9 +21,11 @@ export default function TabLayout() {
                 headerStyle: {
                     backgroundColor: colors.cardBackground,
                 },
+                headerShadowVisible: true,
                 headerTintColor: colors.text,
                 headerTitleStyle: {
                     fontWeight: '600',
+                    color: colors.text,
                 },
             }}
         >
@@ -32,6 +34,7 @@ export default function TabLayout() {
                 name="index"
                 options={{
                     title: 'Buscar',
+                    headerTitle: 'Buscar mercadoria',
                     tabBarIcon: ({ color }) => (
                         <MaterialCommunityIcons
                             name="magnify"
