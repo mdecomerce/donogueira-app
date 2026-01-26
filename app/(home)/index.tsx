@@ -31,10 +31,10 @@ export default function BuscarScreen() {
     const [allMercadorias, setAllMercadorias] = useState<Mercadoria[]>([]);
     const PAGE_SIZE = 20;
 
-    // Debounce adaptativo: menor delay para códigos curtos (1-2 dígitos), maior para termos longos
+    // Debounce adaptativo: menor delay para códigos curtos (1-3 dígitos), maior para termos longos
     useEffect(() => {
-        // Se é um código numérico curto (1-2 dígitos), busca imediata
-        const isShortCode = /^\d{1,2}$/.test(searchTerm.trim());
+        // Se é um código numérico curto (1-3 dígitos), busca imediata
+        const isShortCode = /^\d{1,3}$/.test(searchTerm.trim());
         const delayMs = isShortCode ? 0 : 500; // Sem delay para códigos curtos, 500ms para outros
 
         const timer = setTimeout(() => {
@@ -46,6 +46,14 @@ export default function BuscarScreen() {
         return () => clearTimeout(timer);
     }, [searchTerm]);
 
+    // Verificar se termo de busca é válido (1+ caractere para números, 2+ para texto)
+    const isValidSearchTerm = (term: string) => {
+        const trimmed = term.trim();
+        return /^\d+$/.test(trimmed) ?
+                trimmed.length >= 1
+            :   trimmed.length >= 2;
+    };
+
     // Buscar mercadorias quando termo + empresa selecionada
     const {
         data: searchResult,
@@ -53,7 +61,7 @@ export default function BuscarScreen() {
         error,
         isFetching,
     } = useSearchMercadorias(
-        debouncedSearchTerm.length >= 2 && selectedEmpresa ?
+        isValidSearchTerm(debouncedSearchTerm) && selectedEmpresa ?
             {
                 idEmpresa: selectedEmpresa,
                 termo: debouncedSearchTerm,
@@ -61,7 +69,7 @@ export default function BuscarScreen() {
                 limit: PAGE_SIZE,
             }
         :   undefined,
-        debouncedSearchTerm.length >= 2 && !!selectedEmpresa,
+        isValidSearchTerm(debouncedSearchTerm) && !!selectedEmpresa,
     );
 
     // Acumular resultados quando novas páginas são carregadas
@@ -141,7 +149,6 @@ export default function BuscarScreen() {
                                 <Picker.Item
                                     label="Selecione uma empresa"
                                     value={null}
-                                    color={colors.textSecondary}
                                 />
                                 {user.empresas.map((empresa) => {
                                     const empresaStr = String(empresa);
@@ -150,7 +157,6 @@ export default function BuscarScreen() {
                                             key={empresaStr}
                                             label={empresaStr}
                                             value={empresaStr}
-                                            color={colors.text}
                                         />
                                     );
                                 })}
@@ -218,7 +224,7 @@ export default function BuscarScreen() {
                             Selecione uma empresa para buscar
                         </Text>
                     </View>
-                : searchTerm.length < 2 ?
+                : !isValidSearchTerm(searchTerm) ?
                     <View style={styles.emptyState}>
                         <MaterialCommunityIcons
                             name="magnify"
@@ -231,7 +237,8 @@ export default function BuscarScreen() {
                                 { color: colors.textSecondary },
                             ]}
                         >
-                            Digite pelo menos 2 caracteres para buscar
+                            Digite pelo menos 2 caracteres (ou 1 número) para
+                            buscar
                         </Text>
                     </View>
                 : isLoading ?
@@ -354,7 +361,8 @@ export default function BuscarScreen() {
                                                 { color: colors.textSecondary },
                                             ]}
                                         >
-                                            Estoque: {item.estoque ?? 'N/A'}
+                                            código:{item.id} estoque:
+                                            {item.estoque ?? 'N/A'}
                                         </Text>
                                     </Pressable>
                                 );
