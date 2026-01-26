@@ -6,6 +6,7 @@ import {
 } from '@/hooks/api/useMercadorias';
 import { useTheme } from '@/hooks/useTheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -119,55 +120,41 @@ export default function BuscarScreen() {
                         >
                             Empresa
                         </Text>
-                        <View style={styles.empresasButtonsContainer}>
-                            {user.empresas.map((empresa) => {
-                                const empresaStr = String(empresa);
-                                return (
-                                    <Pressable
-                                        key={empresaStr}
-                                        onPress={() => {
-                                            if (
-                                                selectedEmpresa === empresaStr
-                                            ) {
-                                                setSelectedEmpresa(null);
-                                                setSearchTerm('');
-                                            } else {
-                                                setSelectedEmpresa(empresaStr);
-                                            }
-                                        }}
-                                        style={[
-                                            styles.empresaButton,
-                                            {
-                                                backgroundColor:
-                                                    (
-                                                        selectedEmpresa ===
-                                                        empresaStr
-                                                    ) ?
-                                                        colors.tint
-                                                    :   colors.cardBackground,
-                                                borderColor: colors.border,
-                                            },
-                                        ]}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.empresaButtonText,
-                                                {
-                                                    color:
-                                                        (
-                                                            selectedEmpresa ===
-                                                            empresaStr
-                                                        ) ?
-                                                            '#FFF'
-                                                        :   colors.text,
-                                                },
-                                            ]}
-                                        >
-                                            {empresaStr}
-                                        </Text>
-                                    </Pressable>
-                                );
-                            })}
+                        <View
+                            style={[
+                                styles.pickerContainer,
+                                {
+                                    backgroundColor: colors.inputBackground,
+                                    borderColor: colors.inputBorder,
+                                },
+                            ]}
+                        >
+                            <Picker
+                                selectedValue={selectedEmpresa}
+                                onValueChange={(itemValue: string | null) => {
+                                    setSelectedEmpresa(itemValue);
+                                    if (!itemValue) setSearchTerm('');
+                                }}
+                                style={[styles.picker, { color: colors.text }]}
+                                dropdownIconColor={colors.textSecondary}
+                            >
+                                <Picker.Item
+                                    label="Selecione uma empresa"
+                                    value={null}
+                                    color={colors.textSecondary}
+                                />
+                                {user.empresas.map((empresa) => {
+                                    const empresaStr = String(empresa);
+                                    return (
+                                        <Picker.Item
+                                            key={empresaStr}
+                                            label={empresaStr}
+                                            value={empresaStr}
+                                            color={colors.text}
+                                        />
+                                    );
+                                })}
+                            </Picker>
                         </View>
                     </View>
                 )}
@@ -452,23 +439,13 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
-    empresasButtonsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 10,
-    },
-    empresaButton: {
+    pickerContainer: {
         borderWidth: 1,
         borderRadius: 8,
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        flex: 1,
-        minWidth: '45%',
-        alignItems: 'center',
+        overflow: 'hidden',
     },
-    empresaButtonText: {
-        fontSize: 13,
-        fontWeight: '500',
+    picker: {
+        height: 50,
     },
     emptyState: {
         flex: 1,
