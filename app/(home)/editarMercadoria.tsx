@@ -97,6 +97,14 @@ export default function EditarMercadoriaScreen() {
             Alert.alert('Erro', 'Dados da mercadoria incompletos.');
             return;
         }
+        // Validação do código de barras
+        if (codigoBarras && ![8, 12, 13, 14].includes(codigoBarras.length)) {
+            Alert.alert(
+                'Erro',
+                'O código de barras deve ter 8, 12, 13 ou 14 dígitos.',
+            );
+            return;
+        }
         setIsSaving(true);
         updateMercadoria.mutate(
             {
@@ -119,8 +127,14 @@ export default function EditarMercadoriaScreen() {
                     );
                     router.back();
                 },
-                onError: () => {
-                    Alert.alert('Erro', 'Falha ao atualizar mercadoria');
+                onError: (error: any) => {
+                    let errorMessage = 'Falha ao atualizar mercadoria';
+                    if (error && error.message) {
+                        errorMessage += `: ${error.message}`;
+                    } else if (typeof error === 'string') {
+                        errorMessage += `: ${error}`;
+                    }
+                    Alert.alert('Erro', errorMessage);
                 },
                 onSettled: () => {
                     setIsSaving(false);
@@ -148,6 +162,7 @@ export default function EditarMercadoriaScreen() {
         <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={[styles.container, { backgroundColor: colors.background }]}
+            keyboardVerticalOffset={100}
         >
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
