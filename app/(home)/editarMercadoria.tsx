@@ -129,10 +129,25 @@ export default function EditarMercadoriaScreen() {
                 },
                 onError: (error: any) => {
                     let errorMessage = 'Falha ao atualizar mercadoria';
-                    if (error && error.message) {
-                        errorMessage += `: ${error.message}`;
-                    } else if (typeof error === 'string') {
-                        errorMessage += `: ${error}`;
+                    if (error) {
+                        // Adiciona status HTTP se disponível
+                        if (error.response && error.response.status) {
+                            errorMessage += ` (status: ${error.response.status})`;
+                        }
+                        if (error.response && error.response.data) {
+                            // Caso a API retorne um objeto de erro detalhado
+                            if (typeof error.response.data === 'string') {
+                                errorMessage += `: ${error.response.data}`;
+                            } else if (error.response.data.message) {
+                                errorMessage += `: ${error.response.data.message}`;
+                            } else {
+                                errorMessage += `: ${JSON.stringify(error.response.data)}`;
+                            }
+                        } else if (error.message) {
+                            errorMessage += `: ${error.message}`;
+                        } else if (typeof error === 'string') {
+                            errorMessage += `: ${error}`;
+                        }
                     }
                     Alert.alert('Erro', errorMessage);
                 },
