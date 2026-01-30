@@ -1,5 +1,6 @@
 import { Text, View } from '@/components/Themed';
-import { Button } from '@/components/ui';
+import { Button, Input } from '@/components/ui';
+import { useUpdateMercadoria } from '@/hooks/api/useUpdateMercadoria';
 import { useTheme } from '@/hooks/useTheme';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -49,11 +50,18 @@ export default function EditarMercadoriaScreen() {
             JSON.parse(decodeURIComponent(params.mercadoria as string))
         :   null;
 
-    const [endereco, setEndereco] = useState(mercadoria?.endereco || '');
+    const { id, empresa } = mercadoria;
+    console.log('EditarMercadoriaScreen mercadoria:', id, empresa);
+
+    const [rua, setRua] = useState(mercadoria?.rua || '');
+    const [bloco, setBloco] = useState(mercadoria?.bloco || '');
+    const [andar, setAndar] = useState(mercadoria?.andar || '');
+    const [apartamento, setApartamento] = useState(mercadoria?.apartamento || '');
     const [codigoBarras, setCodigoBarras] = useState(
         mercadoria?.codigoBarras || '',
     );
     const [isSaving, setIsSaving] = useState(false);
+    const updateMercadoria = useUpdateMercadoria();
 
     // Set header title
     useLayoutEffect(() => {
@@ -63,16 +71,60 @@ export default function EditarMercadoriaScreen() {
     }, [navigation]);
 
     const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            // TODO: Implementar mutation para atualizar endereço e código de barras
-            Alert.alert('Sucesso', 'Mercadoria atualizada com sucesso!');
-            router.back();
-        } catch (err) {
-            Alert.alert('Erro', 'Falha ao atualizar mercadoria');
-        } finally {
-            setIsSaving(false);
+        // Log detalhado dos campos essenciais
+        const empresa = mercadoria?.empresa ?? mercadoria?.TMER_UNIDADE_FK_PK;
+        const id =
+            mercadoria?.id ??
+            mercadoria?.TMER_CODIGO_PRI_PK ??
+            mercadoria?.idMercadoria;
+        const codigoSecundario =
+            mercadoria?.codigoSecundario ?? mercadoria?.TMER_CODIGO_SEC_PK;
+        console.log('Salvar mercadoria:', {
+            rua,
+            bloco,
+            andar,
+            apartamento,
+            codigoBarras,
+            empresa,
+            id,
+            codigoSecundario,
+            mercadoria,
+        });
+        const isEmpty = (v: any) => v === undefined || v === null || v === '';
+        if (isEmpty(empresa) || isEmpty(id) || isEmpty(codigoSecundario)) {
+            Alert.alert('Erro', 'Dados da mercadoria incompletos.');
+            return;
         }
+        setIsSaving(true);
+        updateMercadoria.mutate(
+            {
+                idEmpresa: empresa,
+                codigoPri: id,
+                codigoSec: codigoSecundario,
+                data: {
+                    rua,
+                    bloco,
+                    andar,
+                    apartamento,
+                    codigoBarras,
+                },
+            },
+            {
+                onSuccess: () => {
+                    Alert.alert(
+                        'Sucesso',
+                        'Mercadoria atualizada com sucesso!',
+                    );
+                    router.back();
+                },
+                onError: () => {
+                    Alert.alert('Erro', 'Falha ao atualizar mercadoria');
+                },
+                onSettled: () => {
+                    setIsSaving(false);
+                },
+            },
+        );
     };
 
     if (!mercadoria) {
@@ -333,23 +385,53 @@ export default function EditarMercadoriaScreen() {
 
                     {/* Endereço */}
                     <View style={styles.fieldGroup}>
-                        <Text style={[styles.label, { color: colors.text }]}>
-                            Endereçamento
-                        </Text>
-                        <TextInput
-                            style={[
-                                styles.input,
-                                {
-                                    backgroundColor: colors.inputBackground,
-                                    borderColor: colors.inputBorder,
-                                    color: colors.text,
-                                },
-                            ]}
-                            value={endereco}
-                            onChangeText={setEndereco}
-                            placeholder="Ex: A-15-3-4"
-                            placeholderTextColor={colors.textSecondary}
-                        />
+                        <Text style={[styles.label, { color: colors.text }]}>Endereçamento</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start' }}>
+                            <Input
+                                label="Rua"
+                                value={rua}
+                                onChangeText={setRua}
+                                placeholder="Ex: RU"
+                                placeholderTextColor={colors.textSecondary}
+                                style={[styles.input, { width: 28, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                maxLength={2}
+                                keyboardType="default"
+                                autoCapitalize="characters"
+                            />
+                            <Input
+                                label="Bloco"
+                                value={bloco}
+                                onChangeText={setBloco}
+                                placeholder="Ex: BLK"
+                                placeholderTextColor={colors.textSecondary}
+                                style={[styles.input, { width: 38, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                maxLength={3}
+                                keyboardType="default"
+                                autoCapitalize="characters"
+                            />
+                            <Input
+                                label="Andar"
+                                value={andar}
+                                onChangeText={setAndar}
+                                placeholder="Ex: A"
+                                placeholderTextColor={colors.textSecondary}
+                                style={[styles.input, { width: 22, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                maxLength={1}
+                                keyboardType="default"
+                                autoCapitalize="characters"
+                            />
+                            <Input
+                                label="Apartamento"
+                                value={apartamento}
+                                onChangeText={setApartamento}
+                                placeholder="Ex: 12"
+                                placeholderTextColor={colors.textSecondary}
+                                style={[styles.input, { width: 28, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                maxLength={2}
+                                keyboardType="default"
+                                autoCapitalize="characters"
+                            />
+                        </View>
                     </View>
 
                     {/* Código de Barras (edição) */}

@@ -99,10 +99,23 @@ export default function BuscarScreen() {
 
     // Navegar para tela de edição
     const handleSelectMercadoria = (mercadoria: Mercadoria) => {
+        // Garante que os campos essenciais estejam presentes
+        const normalized = {
+            ...mercadoria,
+            empresa:
+                mercadoria.empresa ?? (mercadoria as any).TMER_UNIDADE_FK_PK,
+            id:
+                mercadoria.id ??
+                (mercadoria as any).TMER_CODIGO_PRI_PK ??
+                (mercadoria as any).idMercadoria,
+            codigoSecundario:
+                mercadoria.codigoSecundario ??
+                (mercadoria as any).TMER_CODIGO_SEC_PK,
+        };
         router.push({
             pathname: '/editarMercadoria',
             params: {
-                mercadoria: encodeURIComponent(JSON.stringify(mercadoria)),
+                mercadoria: encodeURIComponent(JSON.stringify(normalized)),
             },
         });
     };
