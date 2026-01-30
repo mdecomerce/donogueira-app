@@ -56,7 +56,9 @@ export default function EditarMercadoriaScreen() {
     const [rua, setRua] = useState(mercadoria?.rua || '');
     const [bloco, setBloco] = useState(mercadoria?.bloco || '');
     const [andar, setAndar] = useState(mercadoria?.andar || '');
-    const [apartamento, setApartamento] = useState(mercadoria?.apartamento || '');
+    const [apartamento, setApartamento] = useState(
+        mercadoria?.apartamento || '',
+    );
     const [codigoBarras, setCodigoBarras] = useState(
         mercadoria?.codigoBarras || '',
     );
@@ -385,15 +387,33 @@ export default function EditarMercadoriaScreen() {
 
                     {/* Endereço */}
                     <View style={styles.fieldGroup}>
-                        <Text style={[styles.label, { color: colors.text }]}>Endereçamento</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start' }}>
+                        <Text style={[styles.label, { color: colors.text }]}>
+                            Endereçamento
+                        </Text>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                flexWrap: 'wrap',
+                                gap: 6,
+                                justifyContent: 'flex-start',
+                            }}
+                        >
                             <Input
                                 label="Rua"
                                 value={rua}
                                 onChangeText={setRua}
                                 placeholder="Ex: RU"
                                 placeholderTextColor={colors.textSecondary}
-                                style={[styles.input, { width: 28, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                style={[
+                                    styles.input,
+                                    {
+                                        width: 28,
+                                        backgroundColor: colors.inputBackground,
+                                        borderColor: colors.inputBorder,
+                                        color: colors.text,
+                                        fontSize: 14,
+                                    },
+                                ]}
                                 maxLength={2}
                                 keyboardType="default"
                                 autoCapitalize="characters"
@@ -404,7 +424,16 @@ export default function EditarMercadoriaScreen() {
                                 onChangeText={setBloco}
                                 placeholder="Ex: BLK"
                                 placeholderTextColor={colors.textSecondary}
-                                style={[styles.input, { width: 38, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                style={[
+                                    styles.input,
+                                    {
+                                        width: 38,
+                                        backgroundColor: colors.inputBackground,
+                                        borderColor: colors.inputBorder,
+                                        color: colors.text,
+                                        fontSize: 14,
+                                    },
+                                ]}
                                 maxLength={3}
                                 keyboardType="default"
                                 autoCapitalize="characters"
@@ -415,7 +444,16 @@ export default function EditarMercadoriaScreen() {
                                 onChangeText={setAndar}
                                 placeholder="Ex: A"
                                 placeholderTextColor={colors.textSecondary}
-                                style={[styles.input, { width: 22, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                style={[
+                                    styles.input,
+                                    {
+                                        width: 22,
+                                        backgroundColor: colors.inputBackground,
+                                        borderColor: colors.inputBorder,
+                                        color: colors.text,
+                                        fontSize: 14,
+                                    },
+                                ]}
                                 maxLength={1}
                                 keyboardType="default"
                                 autoCapitalize="characters"
@@ -426,7 +464,16 @@ export default function EditarMercadoriaScreen() {
                                 onChangeText={setApartamento}
                                 placeholder="Ex: 12"
                                 placeholderTextColor={colors.textSecondary}
-                                style={[styles.input, { width: 28, backgroundColor: colors.inputBackground, borderColor: colors.inputBorder, color: colors.text, fontSize: 14 }]}
+                                style={[
+                                    styles.input,
+                                    {
+                                        width: 28,
+                                        backgroundColor: colors.inputBackground,
+                                        borderColor: colors.inputBorder,
+                                        color: colors.text,
+                                        fontSize: 14,
+                                    },
+                                ]}
                                 maxLength={2}
                                 keyboardType="default"
                                 autoCapitalize="characters"
