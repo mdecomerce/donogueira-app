@@ -496,9 +496,13 @@ export default function EditarMercadoriaScreen() {
                                 },
                             ]}
                             value={codigoBarras}
-                            onChangeText={setCodigoBarras}
+                            onChangeText={(text) =>
+                                setCodigoBarras(text.replace(/[^0-9]/g, ''))
+                            }
                             placeholder="Ex: 7908346303546"
                             placeholderTextColor={colors.textSecondary}
+                            keyboardType="numeric"
+                            maxLength={14}
                         />
                     </View>
                 </View>
